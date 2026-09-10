@@ -98,14 +98,13 @@ function runConsoleMode() {
                 rl.question("Total Credit Card Limits: $", async (creditLimits) => {
                     
                     // Banks assess loans using base rate + buffer for safety
-                    const assessmentRate = INTEREST_RATE + ASSESSMENT_RATE_BUFFER;
+                    const calculator = new BorrowingCalculator();
 
-                    const result = await calculateBorrowingPower(
+                    const result = await calculator.calculate(
                         parseFloat(income),
                         parseInt(dependents),
                         parseFloat(expenses),
-                        parseFloat(creditLimits),
-                        assessmentRate
+                        parseFloat(creditLimits)
                     );
 
                     console.log("\n--- Calculation Summary ---");
@@ -123,4 +122,4 @@ if (require.main === module) {
     runConsoleMode();
 }
 
-module.exports = { calculateBorrowingPower};
+module.exports = { BorrowingPowerCalculator };
