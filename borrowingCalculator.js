@@ -13,73 +13,76 @@
 const LOAN_TERM_MONTHS = 360; // 30 Years
 const INTEREST_RATE = 7.0; // 7.0% baseline interest rate
 const ASSESSMENT_RATE_BUFFER = 3.0; // 3.0% buffer added to interest rates
+
 const API_URL = "http://localhost:3000";
 const API_TOKEN = "pat_abcdefghijklmnopqrstuvwxyz0123456789"; //hard coded for convenience but in prod this will have to be an env variable
-
-// Asynchronous function to fetch tax based on income from the API
-async function getTax(income) {
-    const url = API_URL + "/api/tax?income=" + income;
-
-    const response = await fetch(url, {headers: { "Authorization": "Bearer " + API_TOKEN}});
-
-    if (!response.ok){
-        const problem = await response.json();
-        throw new Error("Tax API failed (" + response.status + "): " + problem.error);
+class BorrowingCalculator {
+    constructor(assessmentRate = INTEREST_RATE + ASSESSMENT_RATE_BUFFER) {
+        this.assessmentRate = assessmentRate;
     }
 
-    const data = await response.json();
-    return data.tax;
-}
+    // Asynchronous function to fetch tax based on income from the API
+    async getTax(income) {
+        const url = API_URL + "/api/tax?income=" + income;
+        const response = await fetch(url, { headers: { "Authorization": "Bearer " + API_TOKEN } });
 
-// Asynchronous function to fetch HEM based on income and dependents from the API
-async function getHEM(income, dependents) {
-    const url = API_URL + "/api/hem?income=" + income + "&dependents=" + dependents;
+        if (!response.ok) {
+            const problem = await response.json();
+            throw new Error("Tax API failed (" + response.status + "): " + problem.error);
+        }
 
-    const response = await fetch(url, {headers: { "Authorization": "Bearer " + API_TOKEN}});
-
-    if (!response.ok) {
-        const problem = await response.json();
-        throw new Error("HEM API failed (" + response.status + "): " + problem.error);
+        const data = await response.json();
+        return data.tax;
     }
 
-    const data = await response.json();
-    return data.hem;
-}
+    // Asynchronous function to fetch HEM based on income and dependents from the API
+    async getHEM(income, dependents) {
+        const url = API_URL + "/api/hem?income=" + income + "&dependents=" + dependents;
+        const response = await fetch(url, { headers: { "Authorization": "Bearer " + API_TOKEN } });
 
-/**
- * Calculates the total borrowing power amount and the monthly repayment configuration
- */
-async function calculateBorrowingPower(income, dependents, expenses, creditLimits, annualAssessmentRate) {
-    // 1. Calculate Net Monthly Income after tax deductions
-    const annualTax = await getTax(income);
-    const netMonthlyIncome = (income - annualTax) / 12;
+        if (!response.ok) {
+            const problem = await response.json();
+            throw new Error("HEM API failed (" + response.status + "): " + problem.error);
+        }
 
-    // 2. Determine living expenses (User declared expenses vs HEM baseline, whichever is higher)
-    const baselineHEM = await getHEM(income, dependents);
-    const totalLivingExpenses = Math.max(expenses, baselineHEM);
-
-    // 3. Calculate credit card liability (~3% of total limits)
-    const creditCardLiability = creditLimits * 0.03;
-
-    // 4. Calculate monthly repayment capacity
-    const maxMonthlyRepayment = netMonthlyIncome - totalLivingExpenses - creditCardLiability;
-
-    // Return early if user cannot afford a loan at all
-    if (maxMonthlyRepayment <= 0) {
-        return { maxLoanAmount: 0, monthlyRepayment: 0 };
+        const data = await response.json();
+        return data.hem;
     }
 
-    // 5. Calculate the monthly interest rate
-    const monthlyRate = (annualAssessmentRate / 100) / 12;
+    /**
+     * Calculates the total borrowing power amount and the monthly repayment configuration
+     */
+    async calculate(income, dependents, expenses, creditLimits) {
+        // 1. Calculate Net Monthly Income after tax deductions
+        const annualTax = await getTax(income);
+        const netMonthlyIncome = (income - annualTax) / 12;
 
-    // 6. Calculate maximum borrowing power using the following formula:
-    // P = M * (1 - (1 + R)^-N) / R
-    const maxLoanAmount = maxMonthlyRepayment * ((1 - Math.pow(1 + monthlyRate, - LOAN_TERM_MONTHS)) / monthlyRate);
+        // 2. Determine living expenses (User declared expenses vs HEM baseline, whichever is higher)
+        const baselineHEM = await getHEM(income, dependents);
+        const totalLivingExpenses = Math.max(expenses, baselineHEM);
 
-    return {
-        maxLoanAmount: Number(maxLoanAmount.toFixed(2)),
-        monthlyRepayment: Number(maxMonthlyRepayment.toFixed(2))
-    };
+        // 3. Calculate credit card liability (~3% of total limits)
+        const creditCardLiability = creditLimits * 0.03;
+
+        // 4. Calculate monthly repayment capacity
+        const maxMonthlyRepayment = netMonthlyIncome - totalLivingExpenses - creditCardLiability;
+
+        // Return early if user cannot afford a loan at all
+        if (maxMonthlyRepayment <= 0) {
+            return { maxLoanAmount: 0, monthlyRepayment: 0 };
+        }
+        // 5. Calculate the monthly interest rate
+        const monthlyRate = (this.assessmentRate / 100) / 12;
+
+        // 6. Calculate maximum borrowing power using the following formula:
+        // P = M * (1 - (1 + R)^-N) / R
+        const maxLoanAmount = maxMonthlyRepayment * ((1 - Math.pow(1 + monthlyRate, -LOAN_TERM_MONTHS)) / monthlyRate);
+
+        return {
+            maxLoanAmount: Number(maxLoanAmount.toFixed(2)),
+            monthlyRepayment: Number(maxMonthlyRepayment.toFixed(2))
+        };
+    }
 }
 
 function runConsoleMode() {
@@ -120,4 +123,4 @@ if (require.main === module) {
     runConsoleMode();
 }
 
-module.exports = { calculateBorrowingPower, getTax, getHEM };
+module.exports = { calculateBorrowingPower};
