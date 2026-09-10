@@ -54,11 +54,11 @@ class BorrowingCalculator {
      */
     async calculate(income, dependents, expenses, creditLimits) {
         // 1. Calculate Net Monthly Income after tax deductions
-        const annualTax = await getTax(income);
+        const annualTax = await this.getTax(income);
         const netMonthlyIncome = (income - annualTax) / 12;
 
         // 2. Determine living expenses (User declared expenses vs HEM baseline, whichever is higher)
-        const baselineHEM = await getHEM(income, dependents);
+        const baselineHEM = await this.getHEM(income, dependents);
         const totalLivingExpenses = Math.max(expenses, baselineHEM);
 
         // 3. Calculate credit card liability (~3% of total limits)
@@ -122,4 +122,4 @@ if (require.main === module) {
     runConsoleMode();
 }
 
-module.exports = { BorrowingPowerCalculator };
+module.exports = { BorrowingCalculator };
