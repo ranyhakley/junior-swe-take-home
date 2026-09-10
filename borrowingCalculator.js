@@ -13,6 +13,8 @@
 const LOAN_TERM_MONTHS = 360; // 30 Years
 const INTEREST_RATE = 7.0; // 7.0% baseline interest rate
 const ASSESSMENT_RATE_BUFFER = 3.0; // 3.0% buffer added to interest rates
+const API_URL = "http://localhost:3000";
+const API_TOKEN = "pat_abcdefghijklmnopqrstuvwxyz0123456789"; //hard coded for convenience but in prod this will have to be an env variable
 
 // Legacy placeholder functions to replace with API calls
 function getTax(income) {

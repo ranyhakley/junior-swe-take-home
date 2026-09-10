@@ -21,4 +21,3 @@ describe('Term Deposit Calculator Tests', () => {
   });
 
 });
-
