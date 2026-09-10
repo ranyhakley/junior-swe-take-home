@@ -1,13 +1,9 @@
-/**
- * Borrowing Power Calculator
- * 
- * Gen's incomplete prototype. 
- * This currently calculates what a user can borrow over 30 years.
- * Currently this code uses placeholder methods for Tax and HEM values. 
- * 
- * TODO: Refactor the code to pull Tax and HEM values from an API call.
- * A server.js has been provided to supply these values.
- */
+/*
+    Borrowing Power Calculator.
+    1. npm run api  (to run the server)
+    2. npm start (to run the calculator)
+    3. npm test (to test the calculator)
+*/
 
 // Global constant for mortgage simulation
 const LOAN_TERM_MONTHS = 360; // 30 Years

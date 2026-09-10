@@ -1,76 +1,156 @@
 # Borrowing Power Calculator
 
-Hello and thanks so much for taking the time to do the Ferocia Junior Engineering Code Exercise.
+Works out how much someone could borrow on a 30 year home loan, based on their
+income, dependents, monthly expenses and credit card limits.
 
-This borrowing power calculator written in Javascript was started by one of our juniors, Gen (her full name is “Gen A. Eye”), but she she went on leave before she could finish it…
+Tax and HEM (Household Expenditure Measure) figures come from a local API
+instead of being worked out in the code.
 
-We need you to progress the code in her absence. Once you’ve submitted your work and we’ve reviewed it, you’ll sit down and explain the code to Gens team members (our interviewers) in a pairing session.
+## What you need
 
-Keep in mind that we’ll expect you to be able to explain and expand on the code you submit.
-
-If you haven’t done much Javascript before don’t worry. We’ll take your experience into account, just give it your best shot. 
-
-You can see our online borrowing power calculator (Gens project is simplified so dont expect the number to match perfectly) to see how it work (https://www.bendigobank.com.au/personal/loans/calculators/borrowing-power/).
-
-## Please try to complete the following:
-
-### Replace the two placeholder functions
-The code needs to calculate tax on income and a HEM (Household Expense Measure) value.
-Currently this is performed by placeholder code in the following functions:
-    getTax(income)
-    getHEM(income, dependents)
-You will need to replace the code in both with API calls.
-We have provided a server.js which can you run locally to expose the following 2 development endpoints:
-    http://localhost:3000/api/tax?income=[income]
-    http://localhost:3000/api/hem?income=[income]&dependents=[dependents]
-Both return JSON and require an authentication header with a valid PAT (Personal Access Token), see server.md for full documentation including the development PAT.
-
-### Make it manageable
-Gen planned to pull all the calculator functions into a class so she could extend it later, but we’ll leave it up to you to choose the approach (a well-formed class, an orchestrator function, a factory/closure pattern, or whatever)
-
-### Test coverage
-Of course we’ll need the test suite to pass and have full coverage.
-
-
-
-## Rules:
-
-Use whatever tools and resources help you get the job done. That includes AI, documentation, Stack Overflow, or anything else. What matters is that you understand every line you submit. In the follow-up pairing session, we'll ask you to walk us through your code, explain your decisions, and make changes on the fly - without an AI in Agent mode. If you can't do that confidently, it will count against you. The goal isn't to catch you out, it's to understand how you think.
+Node 18 or newer, because the code uses the built-in `fetch`. I used Node
+20.17.0.
 
 ## Setup
 
-Make sure you have Node.js installed.
-
-Install dependencies:
 ```
 npm install
 ```
 
-## Server
+## Running it
 
-You wil need to run the development API in it's own terminal window.
-(The server will be available at http://localhost:3000/).
-To start the server run the following command:
+The calculator gets its tax and HEM numbers from the API, so the API needs to be
+running first. In one terminal:
+
 ```
 npm run api
 ```
-Note: You can stop the server with Ctrl+C
 
+Leave that running. In a second terminal:
 
-## Running
-
-Run the calculator with:
 ```
 npm start
 ```
 
+It asks you four questions and then prints the result:
 
-## Testing
+```
+Mortgage Borrowing Power Calculator
+===================================
+Gross Annual Income: $50000
+Number of Dependents: 1
+Declared Monthly Expenses: $2000
+Total Credit Card Limits: $6000
 
-Run tests with:
+--- Calculation Summary ---
+Maximum Borrowing Power at 7%: $172,255.66
+Assumed Monthly Mortgage Repayment: $1,511.67 over 30 years
+```
+
+## Running the tests
+
+The tests call the API, so **start the server first**:
+
+```
+npm run api
+```
+
+Then in another terminal:
+
 ```
 npm test
 ```
 
+All 8 tests should pass. If you get `fetch failed` it means the server isn't
+running.
 
+## Files
 
+`borrowingCalculator.js` | The `BorrowingCalculator` class and the console prompts |
+`test_calculator.js` | The tests |
+`server.js` | The API that came with the exercise |
+`server.md` | The API docs that came with the exercise |
+
+## How it works
+
+1. Get the tax for the income from the API, take it off the income, divide by 12
+   to get net monthly income.
+2. Get the HEM figure from the API. Living expenses are whichever is bigger, the
+   declared expenses or HEM. HEM is a floor, not something you add on, so if
+   someone says they spend less than the baseline the baseline is used instead.
+3. Credit cards count as 3% of the total limit per month.
+4. Take the expenses and credit cards off the net monthly income. That's what's
+   left to pay a mortgage with. If it's zero or less, the answer is zero.
+5. Turn that monthly amount into a loan size using the present value formula
+   over 360 months:
+
+   P = M * (1 - (1 + R)^-N) / R
+
+## Decisions I made
+
+I used a class. The brief said it was up to me. The three functions all work
+on the same thing so grouping them made sense. I put the assessment rate in the
+constructor so you can make a calculator at a different rate without changing
+any of the methods:
+
+```js
+const standard = new BorrowingCalculator();      // 7% + 3% buffer = 10%
+const stressed = new BorrowingCalculator(12.5);
+```
+
+The default rate is 10%, not 7%. Banks add a buffer when they check if you
+can afford a loan, so 7% is the rate you'd actually get and 10% is what the
+calculation uses. The console prints 7% because that's the rate the customer
+cares about. It looks a bit odd until you know why, so I've written it down here.
+
+The token is just a constant in the file. In a real app it would come from an 
+environment variable and wouldn't be committed.
+
+## How I tested it
+
+The tests call the real API instead of faking it.
+
+I tried it the other way first, replacing `getTax` and `getHEM` with fake
+functions that returned fixed numbers. It worked, but the numbers I was checking
+against were numbers I'd made up myself, so the test was really only checking my
+own maths. Since the tax and HEM figures live on the server, I thought it made
+more sense to check against what the server actually returns.
+
+I tested the errors the same way. `getTax(-1)` sends a real invalid request and
+the test checks the error message that comes back from the real 400 response.
+
+What the 8 tests cover:
+
+- `getTax` working, and `getTax` failing on a bad income
+- `getHEM` working, and `getHEM` failing on a bad dependents number
+- `calculate` for a normal case
+- `calculate` when declared expenses are higher than HEM, and when HEM is higher
+  (so both sides of that comparison get checked)
+- `calculate` when there's nothing left over and it should return zero
+- the constructor adding the 3% buffer by default
+
+## Assumptions
+
+- **The old test numbers were out of date.** The placeholder functions returned
+  different figures to the API, so the expected values had to change. The
+  standard case went from $4,200 a month to $4,600. The server is where the
+  numbers come from now, so the tests follow it.
+- **I left Gen's constants alone** — 360 months, 7% rate, 3% buffer, 3% of card
+  limits. They looked intentional and changing them would have made it harder to
+  compare with what I started with.
+- **The API caps dependents at 3** (it says so in `server.md`), so I didn't do
+  that check again in the calculator.
+- **I assumed the inputs are sensible.** The console doesn't check what you type,
+  so entering letters gives you `NaN`. Negative numbers get rejected by the API
+  and that error shows up properly.
+
+## Things I know could be better
+
+- **The tax and HEM calls happen one after the other.** They don't depend on each
+  other so they could both be sent at once and it'd be twice as fast. With two
+  calls to a local server it doesn't really matter, but it would with more.
+- **No input validation on the console prompts.** Didn't seem in scope, and it
+  feels like something that belongs in a UI rather than in the calculator.
+- **The console code is in the same file as the class.** I could move it to its
+  own file so `borrowingCalculator.js` is just the calculator and nothing else.
+  Worth doing if this got any bigger.
