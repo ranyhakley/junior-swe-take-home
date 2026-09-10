@@ -16,7 +16,7 @@ const ASSESSMENT_RATE_BUFFER = 3.0; // 3.0% buffer added to interest rates
 const API_URL = "http://localhost:3000";
 const API_TOKEN = "pat_abcdefghijklmnopqrstuvwxyz0123456789"; //hard coded for convenience but in prod this will have to be an env variable
 
-// Legacy placeholder functions to replace with API calls
+// Asynchronous function to fetch tax based on income from the API
 async function getTax(income) {
     const url = API_URL + "/api/tax?income=" + income;
 
@@ -31,6 +31,7 @@ async function getTax(income) {
     return data.tax;
 }
 
+// Asynchronous function to fetch HEM based on income and dependents from the API
 async function getHEM(income, dependents) {
     const url = API_URL + "/api/hem?income=" + income + "&dependents=" + dependents;
 
@@ -119,4 +120,4 @@ if (require.main === module) {
     runConsoleMode();
 }
 
-module.exports = { calculateBorrowingPower };
+module.exports = { calculateBorrowingPower, getTax, getHEM };
